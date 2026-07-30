@@ -150,11 +150,11 @@ impl<'a> SvgRenderer<'a> {
     pub(crate) fn write_image(
         &mut self,
         image: &DynamicImage,
-        interpolate: bool,
+        _interpolate: bool,
         id: Option<Id>,
         transform: Affine,
     ) {
-        let scaling = if interpolate { "smooth" } else { "pixelated" };
+        // let scaling = if interpolate { "smooth" } else { "pixelated" };
 
         let base64 = to_base64(image);
 
@@ -167,8 +167,8 @@ impl<'a> SvgRenderer<'a> {
         self.xml.write_attribute("width", &image.width());
         self.xml.write_attribute("height", &image.height());
         self.xml.write_attribute("preserveAspectRatio", "none");
-        self.xml
-            .write_attribute("style", &format_args!("image-rendering: {scaling}"));
+        // self.xml
+        //     .write_attribute("style", &format_args!("image-rendering: {scaling}"));
         self.xml.end_element();
     }
 }
