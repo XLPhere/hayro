@@ -506,19 +506,28 @@ pub(crate) mod cached {
     // to make it more visible since we have unsafe code here.
     #[cfg(feature = "std")]
     pub(crate) use std::sync::Arc;
+    #[cfg(feature = "std")]
+    pub(crate) use std::sync::OnceLock;
 
     #[cfg(not(feature = "std"))]
     pub(crate) use alloc::rc::Rc as Arc;
+    #[cfg(not(feature = "std"))]
+    pub(crate) use core::cell::OnceCell as OnceLock;
 
     pub(crate) struct CachedPages {
-        pages: Pages<'static>,
+        pages: OnceLock<Pages<'static>>,
         // NOTE: `pages` references the data in `xref`, so it's important that `xref`
         // appears after `pages` in the struct definition to ensure correct drop order.
-        _xref: Arc<XRef>,
+        xref: Arc<XRef>,
     }
 
     impl CachedPages {
-        pub(crate) fn new(xref: Arc<XRef>) -> Option<Self> {
+        pub(crate) fn new(xref: Arc<XRef>) -> Self {
+            Self { pages: OnceLock::new(), xref: xref }
+        }
+
+        fn load(&self) -> Option<Pages<'static>> {
+            let xref = &self.xref;
             // SAFETY:
             // - The XRef's location is stable in memory:
             //   - We wrapped it in a `Arc` (or `Rc` in `no_std`), which implements `StableDeref`.
@@ -529,16 +538,18 @@ pub(crate) mod cached {
             let xref_reference: &'static XRef = unsafe { core::mem::transmute(xref.deref()) };
 
             let ctx = ReaderContext::new(xref_reference, false);
-            let pages = xref_reference
+            xref_reference
                 .get_with(xref.trailer_data().pages_ref, &ctx)
                 .and_then(|p| Pages::new(&p, &ctx, xref_reference))
-                .or_else(|| Pages::new_brute_force(&ctx, xref_reference))?;
-
-            Some(Self { pages, _xref: xref })
+                .or_else(|| Pages::new_brute_force(&ctx, xref_reference))
         }
 
-        pub(crate) fn get(&self) -> &Pages<'_> {
-            &self.pages
+        pub(crate) fn get(&self) -> Option<&Pages<'_>> {
+            if let Some(pages) = self.pages.get() {
+                return Some(pages);
+            }
+            let pages = self.load()?;
+            Some(self.pages.get_or_init(|| pages))
         }
     }
 }
