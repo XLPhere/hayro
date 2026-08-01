@@ -58,7 +58,7 @@ impl Pdf {
         };
         let xref = Arc::new(xref);
 
-        let pages = CachedPages::new(xref.clone()).ok_or(LoadPdfError::Invalid)?;
+        let pages = CachedPages::new(xref.clone());
 
         Ok(Self {
             xref,
@@ -93,7 +93,7 @@ impl Pdf {
 
     /// Return the pages of the PDF file.
     pub fn pages(&self) -> &Pages<'_> {
-        self.pages.get()
+        self.pages.get().unwrap()
     }
 
     /// Return the xref of the PDF file.
